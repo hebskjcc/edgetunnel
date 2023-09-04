@@ -4,9 +4,9 @@ import { connect } from 'cloudflare:sockets';
 
 // How to generate your own UUID:
 // [Windows] Press "Win + R", input cmd and run:  Powershell -NoExit -Command "[guid]::NewGuid()"
-let userID = 'd342d11e-d424-4583-b36e-524ab1f0afa4';
+let userID = '4df72629-f7ab-4e9f-8938-108ea50bdd86';
 
-let proxyIP = '';
+let proxyIP = 'cdn.anycast.eu.org';
 
 
 if (!isValidUUID(userID)) {
@@ -29,7 +29,7 @@ export default {
 				const url = new URL(request.url);
 				switch (url.pathname) {
 					case '/':
-						return new Response(JSON.stringify(request.cf), { status: 200 });
+						return new Response(JSON.stringify(request.headers.get('cf-connecting-ip')), { status: 200 });
 					case `/${userID}`: {
 						const vlessConfig = getVLESSConfig(userID, request.headers.get('Host'));
 						return new Response(`${vlessConfig}`, {
@@ -42,8 +42,19 @@ export default {
 					default:
 						return new Response('Not found', { status: 404 });
 				}
-			} else {
-				return await vlessOverWSHandler(request);
+			} 
+			else if(upgradeHeader && upgradeHeader == 'websocket') {
+				const url = new URL(request.url);
+				switch (url.pathname) {
+					case '/108ea50bdd86':
+						return await vlessOverWSHandler(request);
+					default:
+						return new Response('Not found', { status: 404 });
+				}
+				
+			}
+			else {
+				return new Response('Not found', { status: 404 });
 			}
 		} catch (err) {
 			/** @type {Error} */ let e = err;
@@ -600,7 +611,7 @@ async function handleUDPOutBound(webSocket, vlessResponseHeader, log) {
  * @returns {string}
  */
 function getVLESSConfig(userID, hostName) {
-	const vlessMain = `vless://${userID}@${hostName}:443?encryption=none&security=tls&sni=${hostName}&fp=randomized&type=ws&host=${hostName}&path=%2F%3Fed%3D2048#${hostName}`
+	const vlessMain = `vless://${userID}@${hostName}:443?encryption=none&security=tls&sni=${hostName}&fp=randomized&type=ws&host=${hostName}&path=%2F108ea50bdd86%3Fed%3D2048#${hostName}`
 	return `
 ################################################################
 v2ray
@@ -621,11 +632,10 @@ clash-meta
   sni: ${hostName}
   client-fingerprint: chrome
   ws-opts:
-    path: "/?ed=2048"
+    path: "/108ea50bdd86?ed=2048"
     headers:
       host: ${hostName}
 ---------------------------------------------------------------
 ################################################################
 `;
 }
-
